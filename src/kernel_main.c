@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include "page.h"
 
 // NEVER DELETE NEXT TWO LINES OF CODE FOR BOOT TO GRUB
 #define MULTIBOOT2_HEADER_MAGIC 0xe85250d6
@@ -196,7 +197,10 @@ __attribute__((interrupt)) void pit_handler(void *p) {
         seconds++;
         seconds %= 10;
         unsigned char *vram = (unsigned char *)0xb8000;
-        vram[0] = seconds + '0';
+        // Put counter at top-right corner (column 79, row 0)
+        int offset = (0 * SCREEN_WIDTH + 79) * 2;
+        vram[offset] = seconds + '0';
+        vram[offset + 1] = COLOR;
     }
     
     // Acknowledge interrupt
@@ -242,7 +246,37 @@ void pic_init() {
 
 void main(void) {
     clear_screen();
-    
+
+    // ===== PAGE ALLOCATOR TEST =====
+    init_pfa_list();
+    puts("init_pfa_list: PASS\n");
+
+    struct ppage *p = allocate_physical_pages(3);
+    if (p != (void *)0) {
+        puts("allocate 3 pages: PASS\n");
+    } else {
+        puts("allocate 3 pages: FAIL\n");
+    }
+
+    free_physical_pages(p);
+    puts("free_physical_pages: PASS\n");
+
+    struct ppage *p2 = allocate_physical_pages(3);
+    if (p2 != (void *)0) {
+        puts("re-allocate after free: PASS\n");
+    } else {
+        puts("re-allocate after free: FAIL\n");
+    }
+
+    struct ppage *too_many = allocate_physical_pages(200);
+    if (too_many == (void *)0) {
+        puts("over-allocate returns NULL: PASS\n");
+    } else {
+        puts("over-allocate returns NULL: FAIL\n");
+    }
+    puts("\n");
+    // ===== END TEST =====
+
     puts("Interrupt-driven OS ready!\n");
     puts("Initializing interrupts...\n");
     
