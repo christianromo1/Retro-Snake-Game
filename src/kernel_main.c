@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include "page.h"
+#include "paging.h"
 
 // NEVER DELETE NEXT TWO LINES OF CODE FOR BOOT TO GRUB
 #define MULTIBOOT2_HEADER_MAGIC 0xe85250d6
@@ -10,6 +11,9 @@ __attribute__((section(".multiboot"))) = {
 };
 
 // CAN MAKE EDITS PAST THIS
+
+//Linker Symbol Decleration
+extern uint8_t _end_kernel;
 
 // ============ INTERRUPT STRUCTURES ============
 
@@ -276,6 +280,42 @@ void main(void) {
     }
     puts("\n");
     // ===== END TEST =====
+
+// ===== PAGING SETUP =====
+    puts("Setting up identity-mapped page table...\n");
+
+    struct ppage tmp;
+    tmp.next = (struct ppage *)0;
+
+    // (a) Identity map kernel binary: 0x100000 -> &_end_kernel
+    uint32_t addr = 0x100000;
+    uint32_t end  = ((uint32_t)&_end_kernel + 0xFFF) & ~0xFFF;
+    while (addr < end) {
+        tmp.physical_addr = (void *)addr;
+        map_pages((void *)addr, &tmp, kernel_pd);
+        addr += 0x1000;
+    }
+    puts("Kernel binary identity mapped: PASS\n");
+
+    // (b) Identity map all low memory: 0x0 -> 0x100000
+    // Covers GRUB's stack, GDT, video buffer, and anything else
+    // GRUB placed below 1MB that the CPU may access after paging.
+    for (uint32_t a = 0; a < 0x100000; a += 0x1000) {
+        tmp.physical_addr = (void *)a;
+        map_pages((void *)a, &tmp, kernel_pd);
+    }
+    puts("Low memory identity mapped: PASS\n");
+
+    // (c) Identity map the video buffer
+    tmp.physical_addr = (void *)0xB8000;
+    map_pages((void *)0xB8000, &tmp, kernel_pd);
+    puts("Video buffer identity mapped: PASS\n");
+
+    // Load CR3 and enable paging
+    loadPageDirectory(kernel_pd);
+    enablePaging();
+    puts("Paging enabled!\n\n");
+    // ===== END PAGING SETUP =====
 
     puts("Interrupt-driven OS ready!\n");
     puts("Initializing interrupts...\n");
