@@ -1,6 +1,13 @@
 #include <stdint.h>
 #include "page.h"
 #include "paging.h"
+#include "fat.h"
+#include "ide.h"
+
+// FAT driver function prototypes
+int fatInit(void);
+struct file *fatOpen(const char *filename);
+int fatRead(struct file *f, char *buf, uint32_t nbytes);
 
 // NEVER DELETE NEXT TWO LINES OF CODE FOR BOOT TO GRUB
 #define MULTIBOOT2_HEADER_MAGIC 0xe85250d6
@@ -316,6 +323,32 @@ void main(void) {
     enablePaging();
     puts("Paging enabled!\n\n");
     // ===== END PAGING SETUP =====
+    
+    // ===== FAT FS DEMO =====
+    puts("--- FAT Filesystem Driver ---\n");
+    if (fatInit() == 0) {
+        puts("fatInit: PASS\n");
+
+        struct file *f = fatOpen("TESTFILE.TXT");
+        if (f) {
+            puts("fatOpen: PASS\n");
+
+            static char file_buf[512];
+            int n = fatRead(f, file_buf, 511);
+            if (n > 0) {
+                file_buf[n] = '\0';
+                puts("fatRead: PASS\n");
+                puts("File contents: ");
+                puts(file_buf);
+                puts("\n");
+            } else {
+                puts("fatRead: FAIL\n");
+            }
+        } else {
+            puts("fatOpen: FAIL\n");
+        }
+    }
+    // ===== END FAT DEMO =====
 
     puts("Interrupt-driven OS ready!\n");
     puts("Initializing interrupts...\n");
