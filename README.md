@@ -1,3 +1,5 @@
+Start of Snake Game programmed in C for our custom Operating System built in COMP 310
+
 
 
 # i386 OS
