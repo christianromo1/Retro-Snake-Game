@@ -1,3 +1,4 @@
+//old kernel_main
 #include <stdint.h>
 #include "page.h"
 #include "paging.h"
@@ -179,8 +180,7 @@ void puts(const char *str) {
     }
 }
 
-// <<< CHANGED: renamed from clear_screen to vga_clear to avoid conflict with graphics.h
-static void vga_clear(void) {
+static void clear_screen(void) {
     volatile unsigned char *vram = (volatile unsigned char*)VIDEO_MEMORY;
     for (int row = 0; row < SCREEN_HEIGHT; row++) {
         for (int col = 0; col < SCREEN_WIDTH; col++) {
@@ -200,10 +200,15 @@ __attribute__((interrupt)) void dummy_handler(void *p) {
 }
 
 __attribute__((interrupt)) void keyboard_handler(void *p) {
+    // Read scancode from keyboard controller
     uint8_t scancode = inb(0x60);
+    
+    // Translate and print if valid
     if (scancode < 128 && keyboard_map[scancode] != 0) {
         putc(keyboard_map[scancode]);
     }
+    
+    // Acknowledge interrupt
     outb(0x20, 0x20);
 }
 
@@ -217,10 +222,13 @@ __attribute__((interrupt)) void pit_handler(void *p) {
         seconds++;
         seconds %= 10;
         unsigned char *vram = (unsigned char *)0xb8000;
+        // Put counter at top-right corner (column 79, row 0)
         int offset = (0 * SCREEN_WIDTH + 79) * 2;
         vram[offset] = seconds + '0';
         vram[offset + 1] = COLOR;
     }
+    
+    // Acknowledge interrupt
     outb(0x20, 0x20);
 }
 
@@ -242,31 +250,27 @@ void idt_flush(struct idt_descriptor *idt) {
 }
 
 void pic_init() {
-    outb(0x20, 0x11);
-    outb(0xA0, 0x11);
+    outb(0x20, 0x11); // RESET command to primary PIC
+    outb(0xA0, 0x11); // RESET command to secondary PIC
+
+    // Remapping the PIC
     outb(0x21, 32);
     outb(0xA1, 40);
-    outb(0x21, 4);
-    outb(0xA1, 2);
-    outb(0x21, 1);
-    outb(0xA1, 1);
-    outb(0x21, 0xFC);
-    outb(0xA1, 0xFF);
+
+    outb(0x21, 4); // Primary PIC cascade interrupts 
+    outb(0xA1, 2); // Secondary PIC - "slave" mode
+
+    outb(0x21, 1); // 8086 mode
+    outb(0xA1, 1); // 8086 mode
+
+    outb(0x21, 0xFC); // Unmask interrupts (keyboard = IRQ1, timer = IRQ0)
+    outb(0xA1, 0xFF); // Mask all secondary PIC interrupts
 }
 
 // ============ MAIN ============
 
 void main(void) {
-    // CHANGED: capture ebx (GRUB multiboot info pointer) FIRST before anything runs
-    register uint32_t mb_info_addr asm("ebx");
-    uint32_t saved_mb = mb_info_addr;
-
-    // init graphics from GRUB framebuffer info
-    graphics_init(saved_mb);
-    
-
-    // CHANGED: was clear_screen(), now vga_clear()
-    vga_clear();
+    clear_screen();
 
     // ===== PAGE ALLOCATOR TEST =====
     init_pfa_list();
@@ -298,7 +302,7 @@ void main(void) {
     puts("\n");
     // ===== END TEST =====
 
-    // ===== PAGING SETUP =====
+// ===== PAGING SETUP =====
     puts("Setting up identity-mapped page table...\n");
 
     struct ppage tmp;
@@ -315,6 +319,8 @@ void main(void) {
     puts("Kernel binary identity mapped: PASS\n");
 
     // (b) Identity map all low memory: 0x0 -> 0x100000
+    // Covers GRUB's stack, GDT, video buffer, and anything else
+    // GRUB placed below 1MB that the CPU may access after paging.
     for (uint32_t a = 0; a < 0x100000; a += 0x1000) {
         tmp.physical_addr = (void *)a;
         map_pages((void *)a, &tmp, kernel_pd);
@@ -326,20 +332,12 @@ void main(void) {
     map_pages((void *)0xB8000, &tmp, kernel_pd);
     puts("Video buffer identity mapped: PASS\n");
 
-    // <<< CHANGED: identity map the linear framebuffer GRUB set up
-    // QEMU typically places it at 0xFD000000; map 640*480*4 bytes worth of pages
-    uint32_t fb_phys = 0xFD000000;
-    for (uint32_t a = fb_phys; a < fb_phys + 640*480*4; a += 0x1000) {
-        tmp.physical_addr = (void *)a;
-        map_pages((void *)a, &tmp, kernel_pd);
-    }
-    puts("Framebuffer identity mapped: PASS\n");
-
+    // Load CR3 and enable paging
     loadPageDirectory(kernel_pd);
     enablePaging();
     puts("Paging enabled!\n\n");
     // ===== END PAGING SETUP =====
-
+    
     // ===== FAT FS DEMO =====
     puts("--- FAT Filesystem Driver ---\n");
     if (fatInit() == 0) {
@@ -369,23 +367,31 @@ void main(void) {
     puts("Interrupt-driven OS ready!\n");
     puts("Initializing interrupts...\n");
     
+    // Set up all interrupt gates
     for (int k = 0; k < 256; k++) {
         set_idt_gate(dummy_handler, k);
     }
     
-    set_idt_gate(keyboard_handler, 33);
-    set_idt_gate(pit_handler, 32);
+    // Install our handlers
+    set_idt_gate(keyboard_handler, 33);  // IRQ1 = interrupt 33
+    set_idt_gate(pit_handler, 32);       // IRQ0 = interrupt 32
     
+    // Load the IDT
     struct idt_descriptor idt_desc;
     idt_desc.limit = sizeof(interrupt_descripter_table) - 1;
     idt_desc.base = (uint32_t)interrupt_descripter_table;
     
     idt_flush(&idt_desc);
+    
+    // Initialize the PIC
     pic_init();
+    
+    // Enable interrupts!
     asm("sti");
     
     puts("Interrupts enabled! Start typing...\n\n");
     
+    // Main loop - just halt and wait for interrupts
     while (1) {
         asm("hlt");
     }
