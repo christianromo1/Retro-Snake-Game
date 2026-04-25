@@ -18,4 +18,8 @@ extern int screen_height;
 #define COLOR_GRAY    0x00444444
 #define COLOR_DKGREEN 0x00005500
 
+void bitBlit(int dest_x, int dest_y,
+             const unsigned char *pixel_data,
+             int sprite_w, int sprite_h);
+
 #endif

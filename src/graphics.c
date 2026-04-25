@@ -64,3 +64,23 @@ void draw_rect(int x, int y, int w, int h, uint32_t color) {
 void clear_screen(uint32_t color) {
     draw_rect(0, 0, screen_width, screen_height, color);
 }
+
+void bitBlit(int dest_x, int dest_y,
+             const unsigned char *pixel_data,
+             int sprite_w, int sprite_h) {
+    for (int row = 0; row < sprite_h; row++) {
+        for (int col = 0; col < sprite_w; col++) {
+            int idx = (row * sprite_w + col) * 4;
+            unsigned char r = pixel_data[idx + 0];
+            unsigned char g = pixel_data[idx + 1];
+            unsigned char b = pixel_data[idx + 2];
+            unsigned char a = pixel_data[idx + 3];
+            if (a > 128) { /* skip transparent pixels */
+                uint32_t color = ((uint32_t)r << 16)
+                               | ((uint32_t)g << 8)
+                               | (uint32_t)b;
+                draw_pixel(dest_x + col, dest_y + row, color);
+            }
+        }
+    }
+}

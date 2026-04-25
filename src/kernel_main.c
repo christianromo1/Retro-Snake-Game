@@ -263,7 +263,8 @@ void main(void) {
 
     // init graphics from GRUB framebuffer info
     graphics_init(saved_mb);
-    
+
+    // add spites below:
 
     // CHANGED: was clear_screen(), now vga_clear()
     vga_clear();
