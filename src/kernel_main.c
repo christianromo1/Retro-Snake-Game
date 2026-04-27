@@ -141,16 +141,17 @@ __attribute__((interrupt)) void keyboard_handler(void *p) {
         extended = 1;
     } else if (extended) {
         extended = 0;
-        switch (scancode) {
-            case 0x48: game_set_direction(DIR_UP);    break;
-            case 0x50: game_set_direction(DIR_DOWN);  break;
-            case 0x4B: game_set_direction(DIR_LEFT);  break;
-            case 0x4D: game_set_direction(DIR_RIGHT); break;
-        }
-    } else {
-        // R key (scancode 0x13) restarts the game when it's over
-        if (scancode == 0x13 && game_is_over()) {
-            game_init(0xCAFEBABE);
+        if (game_is_over()) {
+            // Any arrow key restarts
+            if (scancode==0x48||scancode==0x50||scancode==0x4B||scancode==0x4D)
+                game_init(0xCAFEBABE);
+        } else {
+            switch (scancode) {
+                case 0x48: game_set_direction(DIR_UP);    break;
+                case 0x50: game_set_direction(DIR_DOWN);  break;
+                case 0x4B: game_set_direction(DIR_LEFT);  break;
+                case 0x4D: game_set_direction(DIR_RIGHT); break;
+            }
         }
     }
     outb(0x20, 0x20);
