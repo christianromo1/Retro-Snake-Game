@@ -3,6 +3,20 @@ To play the game, run: ./launch_qemu.sh
 
 "Crt + Alt + F" for Fullscreen
 
+# To Run - Requirements: Gentoo + QEMU
+git clone git@github.com:christianromo1/Retro-Snake-Game.git
+
+cd Retro-Snake-Game
+
+make clean && make
+
+./launch_qemu.sh
+
+
+# Controls:
+Arrow keys to move the snake
+
+When game over appears — press any arrow key to restart
 
 
 
