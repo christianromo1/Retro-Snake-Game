@@ -60,6 +60,7 @@ OBJS = \
 	fat.o \
 	ide.o \
 	graphics.o \
+	snake.o \
 
 
 # Make sure to keep a blank line here after OBJS list
