@@ -228,6 +228,16 @@ void main(void) {
     enablePaging();
     // ===== END PAGING =====
 
+    // <<< FAT: read testfile.txt from disk before game starts
+    fatInit();
+    struct file *f = fatOpen("TESTFILE.TXT");
+    if(f != (struct file *)0) {
+        char file_buf[512];
+        fatRead(f, file_buf, f->rde.file_size);
+        file_buf[f->rde.file_size] = '\0';
+        puts(file_buf);
+    }
+
     // <<< NEW: initialize and display the game
     game_init(0xDEADBEEF);
 
