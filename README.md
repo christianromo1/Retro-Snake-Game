@@ -1,5 +1,6 @@
 # Snake Game programmed in C for our custom Operating System built in COMP 310
 To play the game, run: ./launch_qemu.sh
+"Crt + Alt + F" for Fullscreen
 
 
 
